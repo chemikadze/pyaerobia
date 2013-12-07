@@ -42,6 +42,11 @@ class Aerobia(object):
             self.__root,
             '/users/%(user_id)s/workouts?view=list' % locals())
 
+    def _export_url(self, workout_id, fmt):
+        return urljoin(
+            self.__root,
+            "/export/workouts/%(workout_id)s/%(fmt)s" % locals())
+
     def _get_auth_token(self):
         request = Request(url=self._auth_url(), headers=self._CHEAT_HEADERS)
         response = urlopen(request)
@@ -131,3 +136,7 @@ class Aerobia(object):
             workouts.append(Workout(id, name, date, duration, length))
 
         return workouts
+
+    def export_workout(self, workout_id, fmt='tcx'):
+        response = self._opener.open(self._export_url(workout_id, fmt))
+        return response.read()
