@@ -1,4 +1,8 @@
+# -*- coding: utf-8 -*-
+
 from cookielib import CookieJar
+from datetime import datetime, timedelta
+import re
 from urllib import urlencode
 from urllib2 import *
 from urlparse import urljoin
@@ -8,12 +12,15 @@ from BeautifulSoup import BeautifulSoup
 
 class Workout(object):
 
-    def __init__(self, id, name):
+    def __init__(self, id, name, date, duration, length):
         self.id = id
         self.name = name
+        self.date = date
+        self.duration = duration
+        self.length = length
 
     def __repr__(self):
-        return 'Workout(%(id)s, %(name)s)' % self.__dict__
+        return 'Workout(%(id)s, %(name)s, %(date)s, %(duration)s, %(length)s)' % self.__dict__
 
 class Aerobia(object):
 
@@ -55,6 +62,27 @@ class Aerobia(object):
         profile_tags = soup.findAll(name='li', attrs={'class': 'profile'})
         self._user_id = profile_tags[0].a['href'].split('/')[-1]
 
+    def _flatten_strings(self, tag):
+        contents = []
+        for child in tag.contents:
+            if isinstance(child, basestring):
+                contents.append(child)
+            else:
+                contents.extend(self._flatten_strings(child))
+        return contents
+
+    def _month_num(self, month):
+        months = [u'январь', u'февраль',
+                  u'март', u'апрель', u'май',
+                  u'июнь', u'июль', u'август',
+                  u'сентябрь', u'октябрь', u'ноябрь',
+                  u'декабрь']
+        prefix = month.strip('.')
+        for i in xrange(len(months)):
+            if months[i].startswith(prefix):
+                return i + 1
+        raise Exception(month + "is not legal month name")
+
     def auth(self, user, password):
         token = self._get_auth_token()
         self._do_auth(user, password, token)
@@ -73,10 +101,31 @@ class Aerobia(object):
         for tr in workout_rows:
             name_tds = tr.findAll('td', attrs={'class': 'title'})
             name = name_tds[0].div['title']
+
             id_refs = tr.findAll('a', attrs={'data-partial': 'workout'})
             id = id_refs[0]['href'].split('/')[-1]
 
-            workouts.append(Workout(id, name))
+            datetime_spans = tr.findAll('span', attrs={'class': 'datetime'})
+            datetime_str = \
+                ''.join(self._flatten_strings(datetime_spans[0])).strip()
+            datetime_re = re.compile(r'(\d+)\s+(\S+)\s+(\d+)\D+(\d+)\:(\d+)')
+            [d, M, y, h, m] = datetime_re.match(datetime_str).groups()
+            month = self._month_num(M)
+            date = datetime(int(y), month, int(d), int(h), int(m))
+
+            duration_td = tr.findAll('td')[-1]
+            duration_str = duration_td.string
+            duration_re = re.compile(r'(\d+)\D+(\d+)\D+(\d+)')
+            [d_h, d_m, d_s] = duration_re.match(duration_str).groups()
+            duration = \
+                timedelta(hours=int(d_h), minutes=int(d_m), seconds=int(d_s))
+
+            length_tds = tr.findAll(lambda el: (el.string or '').count(u'км'))
+            length_str = length_tds[0].string
+            length_re = re.compile(r'([0-9.]+).*')
+            length = float(length_re.match(length_str).group(1))
+
+            workouts.append(Workout(id, name, date, duration, length))
 
         return workouts
 
