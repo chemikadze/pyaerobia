@@ -7,8 +7,8 @@ from urllib import urlencode
 from urllib2 import *
 from urlparse import urljoin
 
-
 from BeautifulSoup import BeautifulSoup
+
 
 class Workout(object):
 
@@ -20,7 +20,10 @@ class Workout(object):
         self.length = length
 
     def __repr__(self):
-        return 'Workout(%(id)s, %(name)s, %(date)s, %(duration)s, %(length)s)' % self.__dict__
+        return 'Workout(' + \
+               '%(id)s, %(name)s, %(date)s, %(duration)s, %(length)s' + \
+               ')' % self.__dict__
+
 
 class Aerobia(object):
 
@@ -40,7 +43,7 @@ class Aerobia(object):
             '/users/%(user_id)s/workouts?view=list' % locals())
 
     def _get_auth_token(self):
-        request = Request(url = self._auth_url(), headers=self._CHEAT_HEADERS)
+        request = Request(url=self._auth_url(), headers=self._CHEAT_HEADERS)
         response = urlopen(request)
         soup = BeautifulSoup(response.read())
         auth_token_tags = soup.findAll(attrs={'name': 'authenticity_token'})
@@ -50,7 +53,7 @@ class Aerobia(object):
         self._cookie_jar = CookieJar()
         self._opener = \
             build_opener(HTTPCookieProcessor(self._cookie_jar), HTTPHandler())
-        auth_request = Request(url = self._auth_url())
+        auth_request = Request(url=self._auth_url())
         data = urlencode({
             'user[email]': user,
             'user[password]': password,
@@ -90,7 +93,7 @@ class Aerobia(object):
     def workout_list(self, user_id=None):
         user_id = user_id or self._user_id
         request = Request(
-            url = self._workouts_url(user_id),
+            url=self._workouts_url(user_id),
             headers=self._CHEAT_HEADERS)
         response = self._opener.open(request)
         soup = BeautifulSoup(response.read())
@@ -128,5 +131,3 @@ class Aerobia(object):
             workouts.append(Workout(id, name, date, duration, length))
 
         return workouts
-
-
