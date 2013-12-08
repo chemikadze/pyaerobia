@@ -6,8 +6,19 @@ import re
 from urllib import urlencode
 from urllib2 import *
 from urlparse import urljoin
+import json
 
+from poster.encode import multipart_encode, MultipartParam
+from poster.streaminghttp import StreamingHTTPHandler
 from BeautifulSoup import BeautifulSoup
+
+
+class _str(str):
+    def capitalize(s):
+        return s
+
+    def title(s):
+        return s
 
 
 class Workout(object):
@@ -33,6 +44,7 @@ class Aerobia(object):
 
     def __init__(self, root='http://aerobia.ru/'):
         self.__root = root
+        self._opener = None
 
     def _auth_url(self):
         return urljoin(self.__root, '/users/sign_in')
@@ -51,9 +63,22 @@ class Aerobia(object):
             self.__root,
             "/export/workouts/%(workout_id)s/%(fmt)s" % locals())
 
-    def _get_auth_token(self):
-        request = Request(url=self._auth_url(), headers=self._CHEAT_HEADERS)
-        response = urlopen(request)
+    def _import_form_url(self):
+        return urljoin(
+            self.__root,
+            "/import/files/new")
+
+    def _import_file_url(self):
+        return urljoin(
+            self.__root,
+            "/import/files")
+
+    def _get_auth_token(self, url):
+        request = Request(url=url, headers=self._CHEAT_HEADERS)
+        if self._opener:
+            response = self._opener.open(request)
+        else:
+            response = urlopen(request)
         soup = BeautifulSoup(response.read())
         auth_token_tags = soup.findAll(attrs={'name': 'authenticity_token'})
         return auth_token_tags[0]['value']
@@ -61,7 +86,9 @@ class Aerobia(object):
     def _do_auth(self, user, password, token):
         self._cookie_jar = CookieJar()
         self._opener = \
-            build_opener(HTTPCookieProcessor(self._cookie_jar), HTTPHandler())
+            build_opener(
+                StreamingHTTPHandler(debuglevel=0),
+                HTTPCookieProcessor(self._cookie_jar))
         auth_request = Request(url=self._auth_url())
         data = urlencode({
             'user[email]': user,
@@ -96,7 +123,7 @@ class Aerobia(object):
         raise Exception(month + "is not legal month name")
 
     def auth(self, user, password):
-        token = self._get_auth_token()
+        token = self._get_auth_token(self._auth_url())
         self._do_auth(user, password, token)
 
     def workout_list(self, user_id=None):
@@ -159,6 +186,40 @@ class Aerobia(object):
 
         return workouts
 
-    def export_workout(self, workout_id, fmt='tcx'):
+    def export_workout(self, workout_id, fmt='tcx', file=None):
         response = self._opener.open(self._export_url(workout_id, fmt))
-        return response.read()
+        if file is None:
+            return response.read()
+        else:
+            file.write(response.read())
+
+    def import_workout(self, file):
+        if hasattr(file, 'read'):
+            payload = MultipartParam(
+                name="workout_file[file][]",
+                fileobj=file,
+                filetype="application/octet-stream",
+                filename=getattr(file, 'name', 'workout.tcx'))
+        elif isinstance(file, basestring):
+            payload = MultipartParam(
+                name="workout_file[file][]",
+                value=file,
+                filetype="application/octet-stream",
+                filename='workout.tcx')
+        else:
+            raise TypeError("Expected file-like object or string")
+
+        token = self._get_auth_token(self._import_form_url())
+
+        data, headers = multipart_encode(
+            [('authenticity_token', token), payload])
+        headers.update(self._CHEAT_HEADERS)
+        headers['X-CSRF-Token'] = token
+        headers['Referer'] = "http://aerobia.ru/"
+        request = Request(self._import_file_url(), headers=headers, data=data)
+        response = self._opener.open(request)
+        assert response.getcode() / 100 == 2
+        uploaded_json = json.load(response)
+        continue_response = self._opener.open(
+            urljoin(self.__root, uploaded_json['continue_path']))
+        assert continue_response.getcode() / 100 == 2
