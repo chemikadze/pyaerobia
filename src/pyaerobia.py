@@ -23,16 +23,18 @@ class _str(str):
 
 class Workout(object):
 
-    def __init__(self, id, name, date, duration, length):
+    def __init__(self, id, name, date, duration, length, type_):
         self.id = id
         self.name = name
         self.date = date
         self.duration = duration
         self.length = length
+        self.type = type_
 
     def __repr__(self):
         return (('Workout(' +
-                 '%(id)s, %(name)s, %(date)s, %(duration)s, %(length)s' +
+                 '%(id)s, %(name)s, %(date)s, %(duration)s, ' +
+                 '%(length)s, %(type)s' +
                  ')') % self.__dict__).encode('utf-8')
 
 
@@ -47,12 +49,12 @@ class Aerobia(object):
         self._opener = None
 
     def _auth_url(self):
-        return urljoin(self.__root, '/users/sign_in')
+        return urljoin(self.__root, 'users/sign_in')
 
     def _workouts_url(self, user_id, page=None):
         base = urljoin(
             self.__root,
-            '/users/%(user_id)s/workouts?view=list' % locals())
+            'users/%(user_id)s/workouts?view=list' % locals())
         if page is not None:
             return base + '&page=' + str(page)
         else:
@@ -61,17 +63,17 @@ class Aerobia(object):
     def _export_url(self, workout_id, fmt):
         return urljoin(
             self.__root,
-            "/export/workouts/%(workout_id)s/%(fmt)s" % locals())
+            "export/workouts/%(workout_id)s/%(fmt)s" % locals())
 
     def _import_form_url(self):
         return urljoin(
             self.__root,
-            "/import/files/new")
+            "import/files/new")
 
     def _import_file_url(self):
         return urljoin(
             self.__root,
-            "/import/files")
+            "import/files")
 
     def _get_auth_token(self, url):
         request = Request(url=url, headers=self._CHEAT_HEADERS)
@@ -111,16 +113,22 @@ class Aerobia(object):
         return contents
 
     def _month_num(self, month):
-        months = [u'январь', u'февраль',
-                  u'марта', u'апрель', u'мая',
-                  u'июня', u'июля', u'август',
-                  u'сентябрь', u'октябрь', u'ноябрь',
-                  u'декабрь']
+        months_ru = [u'январь', u'февраль',
+                     u'марта', u'апрель', u'мая',
+                     u'июня', u'июля', u'август',
+                     u'сентябрь', u'октябрь', u'ноябрь',
+                     u'декабрь']
+        months_en = ['Jan', 'Feb',
+                     'Mar', 'Apr', 'May',
+                     'Jun', 'Jul', 'Aug',
+                     'Sep', 'Oct', 'Nov',
+                     'Dec']
         prefix = month.strip('.')
-        for i in xrange(len(months)):
-            if months[i].startswith(prefix):
-                return i + 1
-        raise Exception(month + "is not legal month name")
+        for months in [months_en, months_ru]:
+            for i in xrange(len(months)):
+                if months[i].startswith(prefix):
+                    return i + 1
+        raise Exception(month + " is not legal month name")
 
     def auth(self, user, password):
         token = self._get_auth_token(self._auth_url())
@@ -162,10 +170,10 @@ class Aerobia(object):
             datetime_spans = tr.findAll('span', attrs={'class': 'datetime'})
             datetime_str = \
                 ''.join(self._flatten_strings(datetime_spans[0])).strip()
-            datetime_re = re.compile(r'(\d+)\s+(\S+)\s+(\d+)\D+(\d+)\:(\d+)')
-            [d, M, y, h, m] = datetime_re.match(datetime_str).groups()
+            datetime_re = re.compile(r'(\d+)\s+(\S+)\s+(\d+)(\D+(\d+)\:(\d+))?')
+            [d, M, y, _, h, m] = datetime_re.match(datetime_str).groups()
             month = self._month_num(M)
-            date = datetime(int(y), month, int(d), int(h), int(m))
+            date = datetime(int(y), month, int(d), int(h or 0), int(m or 0))
 
             duration_td = tr.findAll('td')[-1]
             duration_str = duration_td.string
@@ -176,12 +184,18 @@ class Aerobia(object):
                 minutes=int(d_m),
                 seconds=int(d_s))
 
-            length_tds = tr.findAll(lambda el: (el.string or '').count(u'км'))
-            length_str = length_tds[0].string
-            length_re = re.compile(r'([0-9.]+).*')
-            length = float(length_re.match(length_str).group(1))
+            length_re = re.compile(ur'([0-9.]+)\s+(km|км)')
+            length_tds = tr.findAll(lambda el: length_re.match(str(el.string)))
+            if len(length_tds):
+                length_str = length_tds[0].string
+                length = float(length_re.match(length_str).group(1))
+            else:
+                length = 0
 
-            workout = Workout(id, name, date, duration, length)
+            type_img = tr.findAll('img')
+            type_ = type_img[0]['alt'].strip()
+
+            workout = Workout(id, name, date, duration, length, type_)
             workouts.append(workout)
 
         return workouts
