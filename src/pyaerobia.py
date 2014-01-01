@@ -1,16 +1,26 @@
 # -*- coding: utf-8 -*-
 
-from cookielib import CookieJar
 from datetime import datetime, timedelta
 import re
-from urllib import urlencode
-from urllib2 import *
-from urlparse import urljoin
 import json
 
-from poster.encode import multipart_encode, MultipartParam
-from poster.streaminghttp import StreamingHTTPHandler
-from BeautifulSoup import BeautifulSoup
+try:
+    from cookielib import CookieJar
+    from urllib import urlencode
+    from urllib2 import *
+    from urlparse import urljoin
+except ImportError:
+    from http.cookiejar import CookieJar
+    from urllib.parse import urlencode
+    from urllib import *
+    from urllib.request import Request, urlopen, build_opener, HTTPCookieProcessor
+    from urllib.parse import urljoin
+    basestring = str
+    xrange = range
+    unicode = str
+
+import requests
+from bs4 import BeautifulSoup
 
 
 class _str(str):
@@ -87,15 +97,12 @@ class Aerobia(object):
 
     def _do_auth(self, user, password, token):
         self._cookie_jar = CookieJar()
-        self._opener = \
-            build_opener(
-                StreamingHTTPHandler(debuglevel=0),
-                HTTPCookieProcessor(self._cookie_jar))
+        self._opener = build_opener(HTTPCookieProcessor(self._cookie_jar))
         auth_request = Request(url=self._auth_url())
         data = urlencode({
             'user[email]': user,
             'user[password]': password,
-            'authenticity_token': token})
+            'authenticity_token': token}).encode("utf-8")
         auth_request.add_data(data)
         response = self._opener.open(auth_request)
         assert response.getcode() / 100 == 2
@@ -184,8 +191,9 @@ class Aerobia(object):
                 minutes=int(d_m),
                 seconds=int(d_s))
 
-            length_re = re.compile(ur'([0-9.]+)\s+(km|км)')
-            length_tds = tr.findAll(lambda el: length_re.match(str(el.string)))
+            length_re = re.compile(r'([0-9.]+)\s+(km|км)')
+            length_tds = tr.findAll(
+                lambda el: length_re.match(unicode(el.string)))
             if len(length_tds):
                 length_str = length_tds[0].string
                 length = float(length_re.match(length_str).group(1))
@@ -207,33 +215,40 @@ class Aerobia(object):
         else:
             file.write(response.read())
 
+    def _cookies(self, request):
+        seq = self._cookie_jar._cookies_for_domain('aerobia.ru', request)
+        cookies = {}
+        for cookie in seq:
+            cookies[cookie.name] = cookie.value
+        return cookies
+
     def import_workout(self, file):
         if hasattr(file, 'read'):
-            payload = MultipartParam(
-                name="workout_file[file][]",
-                fileobj=file,
-                filetype="application/octet-stream",
-                filename=getattr(file, 'name', 'workout.tcx'))
+            content = ('workout.tcx', file)
         elif isinstance(file, basestring):
-            payload = MultipartParam(
-                name="workout_file[file][]",
-                value=file,
-                filetype="application/octet-stream",
-                filename='workout.tcx')
+            content = open(file, "rb")
         else:
             raise TypeError("Expected file-like object or string")
 
         token = self._get_auth_token(self._import_form_url())
 
-        data, headers = multipart_encode(
-            [('authenticity_token', token), payload])
+        headers = {}
         headers.update(self._CHEAT_HEADERS)
         headers['X-CSRF-Token'] = token
         headers['Referer'] = "http://aerobia.ru/"
-        request = Request(self._import_file_url(), headers=headers, data=data)
-        response = self._opener.open(request)
-        assert response.getcode() / 100 == 2
-        uploaded_json = json.load(response)
+        cookies = self._cookies(Request(self._import_file_url()))
+        print(cookies)
+        response = requests.post(
+            self._import_file_url(),
+            headers=headers,
+            cookies=cookies,
+            files={
+                'workout_file[file][]': content,
+                'authenticity_token': token
+            })
+        assert response.status_code / 100 == 2
+
+        uploaded_json = response.json()
         continue_response = self._opener.open(
             urljoin(self.__root, uploaded_json['continue_path']))
         assert continue_response.getcode() / 100 == 2
