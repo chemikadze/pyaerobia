@@ -1,0 +1,3 @@
+beautifulsoup4
+requests
+wsgiref==0.1.2
