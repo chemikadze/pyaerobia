@@ -1,0 +1,17 @@
+Hacky python API for aerobia.ru based on site structure
+
+Supported:
+
+- login
+- workout list
+- workout export
+- workout import
+
+Workout properties:
+
+- id
+- name
+- date
+- duration
+- length
+- type
