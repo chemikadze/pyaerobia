@@ -57,8 +57,9 @@ class Aerobia(object):
     def __init__(self, root='http://aerobia.ru/'):
         self.__root = root
         self._opener = None
+        self._user_id = None
 
-    def _auth_url(self):
+    def auth_url(self):
         return urljoin(self.__root, 'users/sign_in')
 
     def _workouts_url(self, user_id, page=None):
@@ -98,7 +99,7 @@ class Aerobia(object):
     def _do_auth(self, user, password, token):
         self._cookie_jar = CookieJar()
         self._opener = build_opener(HTTPCookieProcessor(self._cookie_jar))
-        auth_request = Request(url=self._auth_url())
+        auth_request = Request(url=self.auth_url())
         data = urlencode({
             'user[email]': user,
             'user[password]': password,
@@ -138,8 +139,11 @@ class Aerobia(object):
         raise Exception(month + " is not legal month name")
 
     def auth(self, user, password):
-        token = self._get_auth_token(self._auth_url())
+        token = self._get_auth_token(self.auth_url())
         self._do_auth(user, password, token)
+
+    def user_id(self):
+        return self._user_id
 
     def workout_list(self, user_id=None):
         return list(self.workout_iterator(user_id))
@@ -209,7 +213,7 @@ class Aerobia(object):
         return workouts
 
     def export_workout(self, workout_id, fmt='tcx', file=None):
-        response = self._opener.open(self._export_url(workout_id, fmt))
+        response = self._opener.open(self.export_url(workout_id, fmt))
         if file is None:
             return response.read()
         else:
