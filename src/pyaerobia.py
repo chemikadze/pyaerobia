@@ -86,6 +86,9 @@ class Aerobia(object):
             self.__root,
             "import/files")
 
+    def _workout_url(self, workout_id):
+        return urljoin(self.__root, "workouts/%(workout_id)s" % locals())
+
     def _get_auth_token(self, url):
         request = Request(url=url, headers=self._CHEAT_HEADERS)
         if self._opener:
@@ -93,7 +96,9 @@ class Aerobia(object):
         else:
             response = urlopen(request)
         soup = BeautifulSoup(response.read())
-        auth_token_tags = soup.findAll(attrs={'name': 'authenticity_token'})
+        auth_token_tags = \
+            soup.findAll(attrs={'name': 'authenticity_token'}) + \
+            soup.findAll(attrs={'name': 'csrf-token'})
         return auth_token_tags[0]['value']
 
     def _do_auth(self, user, password, token):
@@ -213,8 +218,7 @@ class Aerobia(object):
             workout = Workout(id, name, date, duration, length, type_)
             workouts.append(workout)
 
-        workouts.reverse()
-        return workouts
+        return sorted(workouts, key=lambda w: w.id, reverse=True)
 
     def export_workout(self, workout_id, fmt='tcx', file=None):
         response = self._opener.open(self._export_url(workout_id, fmt))
@@ -260,3 +264,18 @@ class Aerobia(object):
         continue_response = self._opener.open(
             urljoin(self.__root, uploaded_json['continue_path']))
         assert continue_response.getcode() / 100 == 2
+
+    def workout_delete(self, workout_id):
+        token = self._get_auth_token(self._import_form_url())
+        headers = {}
+        headers.update(self._CHEAT_HEADERS)
+        delete_request = Request(url=self._workout_url(workout_id))
+        data = urlencode({
+            '_method': 'delete',
+            'authenticity_token': token
+        }).encode("utf-8")
+        delete_request.add_data(data)
+        response = self._opener.open(delete_request)
+        assert response.getcode() / 100 == 2
+
+

@@ -48,15 +48,20 @@ class IntegrationTests(TestCase):
         self.assertIsInstance(workout.length, float)
         self.assertIsInstance(workout.type, basestring)
 
-    def test_import_export_workout(self):
+    def test_workout_crud(self):
         try:
             last_id = self.aerobia.workout_iterator().next().id
         except StopIteration:
             last_id = None
-        file = open(os.path.join(os.path.dirname(__file__), "example.tcx"))
+        filename = os.path.join(os.path.dirname(__file__), "example.tcx")
+        file = open(filename)
         void = self.aerobia.import_workout(file)
         self.assertIsNone(void)
         uploaded_id = self.aerobia.workout_iterator().next().id
         self.assertNotEqual(last_id, uploaded_id)
         tcx = self.aerobia.export_workout(uploaded_id)
         self.assertIsInstance(tcx, basestring)
+        self.aerobia.workout_delete(uploaded_id)
+        after_deletion_id = self.aerobia.workout_iterator().next().id
+        self.assertEqual(last_id, after_deletion_id)
+
