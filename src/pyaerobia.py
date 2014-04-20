@@ -163,7 +163,10 @@ class Aerobia(object):
         request = Request(
             url=self._workouts_url(user_id, page),
             headers=self._CHEAT_HEADERS)
-        response = self._opener.open(request)
+        if user_id: # TODO: can not get other user page if authorized
+            response = urlopen(request)
+        else:
+            response = self._opener.open(request)
         soup = BeautifulSoup(response.read())
         tables = soup.findAll("table", attrs={'class': 'list'})
         if not len(tables):  # TODO: check this is really empty page
@@ -202,7 +205,7 @@ class Aerobia(object):
                 length_str = length_tds[0].string
                 length = float(length_re.match(length_str).group(1))
             else:
-                length = 0
+                length = 0.0
 
             type_img = tr.findAll('img')
             type_ = type_img[0]['alt'].strip()
@@ -210,10 +213,11 @@ class Aerobia(object):
             workout = Workout(id, name, date, duration, length, type_)
             workouts.append(workout)
 
+        workouts.reverse()
         return workouts
 
     def export_workout(self, workout_id, fmt='tcx', file=None):
-        response = self._opener.open(self.export_url(workout_id, fmt))
+        response = self._opener.open(self._export_url(workout_id, fmt))
         if file is None:
             return response.read()
         else:
@@ -226,6 +230,7 @@ class Aerobia(object):
             cookies[cookie.name] = cookie.value
         return cookies
 
+    # TODO: should return workout id or something
     def import_workout(self, file):
         if hasattr(file, 'read'):
             content = ('workout.tcx', file)
@@ -241,7 +246,6 @@ class Aerobia(object):
         headers['X-CSRF-Token'] = token
         headers['Referer'] = "http://aerobia.ru/"
         cookies = self._cookies(Request(self._import_file_url()))
-        print(cookies)
         response = requests.post(
             self._import_file_url(),
             headers=headers,

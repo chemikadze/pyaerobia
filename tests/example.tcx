@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2 http://www.garmin.com/xmlschemas/TrainingCenterDatabasev2.xsd">
+  <Activities>
+    <Activity Sport="Other">
+      <Id>2013-12-02T07:26:27Z</Id>
+      <Lap StartTime="2013-12-02T07:37:46Z">
+        <TotalTimeSeconds>679.0</TotalTimeSeconds>
+        <DistanceMeters>1000.0</DistanceMeters>
+        <Calories/>
+        <Intensity>Active</Intensity>
+        <TriggerMethod>Manual</TriggerMethod>
+        <Track>
+          <Trackpoint>
+            <Time>2013-12-02T07:26:27Z</Time>
+            <Position>
+              <LatitudeDegrees>55.6207619</LatitudeDegrees>
+              <LongitudeDegrees>37.6623421</LongitudeDegrees>
+            </Position>
+            <AltitudeMeters>163.0</AltitudeMeters>
+          </Trackpoint>
+          <Trackpoint>
+            <Time>2013-12-02T08:30:15Z</Time>
+            <Position>
+              <LatitudeDegrees>55.6219254</LatitudeDegrees>
+              <LongitudeDegrees>37.6598358</LongitudeDegrees>
+            </Position>
+            <AltitudeMeters>164.0</AltitudeMeters>
+            <DistanceMeters>5517.99</DistanceMeters>
+          </Trackpoint>
+        </Track>
+      </Lap>
+      <Lap StartTime="2013-12-02T08:30:20Z">
+        <TotalTimeSeconds>330.0</TotalTimeSeconds>
+        <DistanceMeters>520.615</DistanceMeters>
+        <Calories/>
+        <Intensity>Active</Intensity>
+        <TriggerMethod>Manual</TriggerMethod>
+        <Track>
+          <Trackpoint>
+            <Time>2013-12-02T08:30:20Z</Time>
+            <Position>
+              <LatitudeDegrees>55.6219597</LatitudeDegrees>
+              <LongitudeDegrees>37.659729</LongitudeDegrees>
+            </Position>
+            <AltitudeMeters>163.9</AltitudeMeters>
+            <DistanceMeters>5525.61</DistanceMeters>
+          </Trackpoint>
+        </Track>
+      </Lap>
+    </Activity>
+  </Activities>
+</TrainingCenterDatabase>
